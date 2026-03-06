@@ -5,7 +5,7 @@ import boto3
 from decimal import Decimal
 import uuid
 import os
-from boto3.dynamodb.conditions import Key, Attr
+from boto3.dynamodb.conditions import Attr
 
 app = Flask(__name__)
 
@@ -77,9 +77,8 @@ MovieMagic Team
     except Exception as e:
         print("SNS ERROR:", e)
 
-
 # ==============================
-# ROUTES
+# HOME PAGE
 # ==============================
 
 @app.route("/")
@@ -88,7 +87,7 @@ def index():
 
 
 # ==============================
-# AUTHENTICATION
+# SIGNUP
 # ==============================
 
 @app.route("/signup", methods=["GET", "POST"])
@@ -133,6 +132,10 @@ def signup():
     return render_template("signup.html")
 
 
+# ==============================
+# LOGIN
+# ==============================
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -150,7 +153,7 @@ def login():
                 "theme": "dark"
             }
 
-            return redirect(url_for("admin_dashboard"))
+            return redirect(url_for("dashboard"))
 
         try:
 
@@ -179,6 +182,10 @@ def login():
     return render_template("login.html")
 
 
+# ==============================
+# LOGOUT
+# ==============================
+
 @app.route("/logout")
 def logout():
     session.pop("user", None)
@@ -196,6 +203,7 @@ def dashboard():
         return redirect(url_for("login"))
 
     try:
+
         response = movies_table.scan()
         movies = replace_decimals(response.get("Items", []))
 
@@ -237,6 +245,62 @@ def profile():
         bookings = []
 
     return render_template("profile.html", user=user, bookings=bookings)
+
+
+# ==============================
+# UPDATE PROFILE
+# ==============================
+
+@app.route("/update_profile", methods=["POST"])
+def update_profile():
+
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    try:
+
+        email = session["user"]["email"]
+
+        mobile = request.form.get("mobile")
+        first_name = request.form.get("first_name")
+        last_name = request.form.get("last_name")
+        birthday = request.form.get("birthday")
+        theme = request.form.get("theme")
+        gender = request.form.get("gender")
+        married = request.form.get("married")
+
+        users_table.update_item(
+            Key={"email": email},
+            UpdateExpression="""
+                SET mobile = :m,
+                    first_name = :f,
+                    last_name = :l,
+                    birthday = :b,
+                    theme = :t,
+                    gender = :g,
+                    married = :mr
+            """,
+            ExpressionAttributeValues={
+                ":m": mobile,
+                ":f": first_name,
+                ":l": last_name,
+                ":b": birthday,
+                ":t": theme,
+                ":g": gender,
+                ":mr": married
+            }
+        )
+
+        session["user"]["theme"] = theme
+
+        flash("Profile updated successfully")
+
+    except Exception as e:
+
+        print("Update Profile Error:", e)
+        flash("Profile update failed")
+
+    return redirect(url_for("profile"))
 
 
 # ==============================
@@ -367,4 +431,4 @@ def confirm_booking():
 # ==============================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True) 
